@@ -304,52 +304,77 @@ function Team() {
   if (data) return <TeamBoard data={data} reload={() => load(data.member.slug)} />;
 
   return (
-    <div className="team-entry">
-      <div className="brand">
-        <span className="brand-mark">T</span>
-        <span>Task<span>Flow</span></span>
+    <div className="login-page team-login">
+      <div className="login-aside">
+        <div className="brand light">
+          <span className="brand-mark">T</span>
+          <span>Task<span>Flow</span></span>
+        </div>
+        <div>
+          <p className="eyebrow">TEAM ACCESS</p>
+          <h1>What are you<br /><em>working on?</em></h1>
+          <p>Pick your name and enter your 4-digit PIN to open your private task board.</p>
+        </div>
+        <div className="login-stats">
+          <b>{String(members.length || 0).padStart(2, "0")}</b>
+          <span>teammates shipping today</span>
+        </div>
       </div>
-      <div className="entry-panel">
-        <p className="eyebrow">TEAM ACCESS</p>
-        <h1>What are you<br /><em>working on?</em></h1>
-        <p className="muted">Choose your name and enter your private 4-digit PIN.</p>
-        <select
-          data-testid="team-member-picker"
-          value={chosen}
-          onChange={(e) => setChosen(e.target.value)}
-        >
-          <option value="">Select your name</option>
-          {members.map((m) => (
-            <option key={m.member_id} value={m.member_id}>
-              {`${m.name} — ${m.classification}`}
-            </option>
-          ))}
-        </select>
-        <input
-          data-testid="team-pin-input"
-          inputMode="numeric"
-          maxLength="4"
-          placeholder="4-digit PIN"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-        />
-        <button
-          data-testid="team-access-button"
-          className="primary wide"
-          disabled={!chosen || pin.length !== 4}
-          onClick={openWithPin}
-        >
-          Open my tasks <ArrowRight size={17} />
-        </button>
+      <form
+        className="login-card"
+        onSubmit={(e) => {
+          e.preventDefault();
+          openWithPin();
+        }}
+      >
+        <p className="eyebrow">WELCOME BACK</p>
+        <h2>Open your board</h2>
+        <p className="muted">Only you can see the tasks assigned to you.</p>
+        <label>
+          Your name
+          <select
+            data-testid="team-member-picker"
+            value={chosen}
+            onChange={(e) => setChosen(e.target.value)}
+          >
+            <option value="">Select your name</option>
+            {members.map((m) => (
+              <option key={m.member_id} value={m.member_id}>
+                {`${m.name} — ${m.classification}`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          4-digit PIN
+          <input
+            data-testid="team-pin-input"
+            inputMode="numeric"
+            maxLength="4"
+            placeholder="••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          />
+        </label>
         {error && (
           <div data-testid="team-access-error" className="error">
             {error}
           </div>
         )}
-        <p className="entry-foot">
-          Owners: sign in from <Link to="/login">/login</Link>.
-        </p>
-      </div>
+        <button
+          data-testid="team-access-button"
+          className="primary wide"
+          disabled={!chosen || pin.length !== 4}
+          type="submit"
+        >
+          Open my tasks <ArrowRight size={17} />
+        </button>
+        <div className="or"><span>or</span></div>
+        <Link data-testid="team-owner-link" to="/login" className="google">
+          Owner sign in <span>→</span>
+        </Link>
+        <p className="login-note">Have a direct link? Just open it — no PIN needed.</p>
+      </form>
     </div>
   );
 }
