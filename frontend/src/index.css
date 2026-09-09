@@ -121,17 +121,17 @@ code{font:12px 'JetBrains Mono';color:#4a5045}
 
 /* Admin shell */
 .admin-shell{display:flex;min-height:100vh;background:#fff}
-.admin-shell aside{width:235px;background:var(--green);color:#fff;padding:27px 18px;display:flex;flex-direction:column;flex:none}
+.admin-shell aside{width:235px;background:#1C211B;color:#fff;padding:27px 18px;display:flex;flex-direction:column;flex:none}
 .admin-shell aside .brand{color:#fff;padding:0 10px}
-.admin-shell aside .brand-mark{background:#fff;color:var(--green)}
+.admin-shell aside .brand-mark{background:#fff;color:#1C211B}
 .admin-shell aside .brand>span:last-child span{color:var(--coral)}
 .side-top{display:flex;align-items:center;justify-content:space-between}
-.mobile-toggle{display:none;background:transparent;border:1px solid #405240;color:#e6ede4;border-radius:6px;padding:6px 8px}
-.side-kicker{font:10px 'JetBrains Mono';color:#849181;margin:54px 10px 14px}
+.mobile-toggle{display:none;background:transparent;border:1px solid #40514a;color:#fff;border-radius:6px;padding:6px 8px}
+.side-kicker{font:10px 'JetBrains Mono';color:#cfd6cd;margin:54px 10px 14px}
 .admin-shell nav{display:grid;gap:4px}
-.admin-shell nav a,.side-bottom a,.side-bottom button{color:#b4beb2;padding:11px 10px;display:flex;align-items:center;gap:11px;font-size:12px;border-radius:4px;border:0;background:none;text-align:left}
-.admin-shell nav a.active,.admin-shell nav a:hover,.side-bottom a:hover,.side-bottom button:hover{background:#ffffff14;color:#fff}
-.side-bottom{margin-top:auto;border-top:1px solid #455144;padding-top:18px;display:grid;gap:3px}
+.admin-shell nav a,.side-bottom a,.side-bottom button{color:#fff;padding:11px 10px;display:flex;align-items:center;gap:11px;font-size:12px;border-radius:4px;border:0;background:none;text-align:left}
+.admin-shell nav a.active,.admin-shell nav a:hover,.side-bottom a:hover,.side-bottom button:hover{background:#ffffff1a;color:#fff}
+.side-bottom{margin-top:auto;border-top:1px solid #40514a;padding-top:18px;display:grid;gap:3px}
 .side-bottom button{width:100%}
 .admin-main{padding:52px 6vw;max-width:1400px;flex:1;overflow-x:auto;background:#fff}
 .admin-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:36px;gap:22px}
