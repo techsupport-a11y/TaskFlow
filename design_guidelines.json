@@ -1,0 +1,35 @@
+{
+  "app_name": "TaskFlow",
+  "app_type": "hybrid_fullstack",
+  "theme": "light",
+  "typography": {
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "mono_font": "JetBrains Mono, monospace"
+  },
+  "colors": {
+    "primary": "#1B211A",
+    "background": "#FFFFFF",
+    "surface": "#FAFAFA",
+    "accent_dark": "#0F0E0E",
+    "accent_deep_red": "#2D0000",
+    "border": "#E2E8F0",
+    "text_main": "#0F0E0E",
+    "text_muted": "#64748B"
+  },
+  "image_urls": [
+    {
+      "category": "workspace",
+      "description": "modern desk setup with remote collaboration tools",
+      "image_url": "https://images.unsplash.com/photo-1549399905-5d1bad747576?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxyZW1vdGUlMjB0ZWFtJTIwY29sbGFib3JhdGlvbiUyMG1vZGVybiUyMHdvcmtzcGFjZXxlbnwwfHx8fDE3ODg5Nzg1Mjd8MA&ixlib=rb-4.1.0&q=85"
+    }
+  ],
+  "instructions_to_main_agent": "Ensure React JS files are used (.js / .jsx), build the frontend with Tailwind CSS and Shadcn/UI primitives, support both Team View (unguessable links + PIN protection) and Owner/Admin View (Usman and Hena logins + Google OAuth mock + financial/admin data), strict workflow enforcement (Assigned -> In Progress -> Pending Approval -> Completed, or Pending Approval -> Revision Required -> In Progress), data isolation for team members, robust testing with data-testid attributes.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Never use full transparent backgrounds in headers or overlays.",
+    "Ensure all interactive elements have data-testid attributes.",
+    "Do not use generic Inter font for headings; use Outfit or similar expressive sans.",
+    "Include micro-interactions, smooth hover states, and proper toast notifications with Sonner.",
+    "Maintain strict server-side and client-side separation for financial and admin data."
+  ]
+}
