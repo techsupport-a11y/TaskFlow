@@ -8,12 +8,13 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-import os, uuid, secrets, jwt, bcrypt, logging, requests, asyncio, resend
+import os, uuid, secrets, jwt, bcrypt, logging, requests, asyncio, resend, certifi
 from dateutil import parser as dateparser
 
 ROOT_DIR = Path(__file__).parent
 mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
+mongo_kwargs = {"tlsCAFile": certifi.where()} if mongo_url.startswith("mongodb+srv://") else {}
+client = AsyncIOMotorClient(mongo_url, **mongo_kwargs)
 db = client[os.environ["DB_NAME"]]
 app = FastAPI(title="TaskFlow API")
 api = APIRouter(prefix="/api")

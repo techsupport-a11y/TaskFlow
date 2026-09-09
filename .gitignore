@@ -36,7 +36,9 @@ dist
 *credentials.json*
 .env
 .env.*
+*.env
 !.env.example
+memory/atlas-credentials.env
 
 # Logs and debug files
 npm-debug.log*
