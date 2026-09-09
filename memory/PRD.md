@@ -27,22 +27,23 @@ Lightweight team task management for a small remote team (3–5 members) with tw
 - Team board grouped by 5 statuses; task detail modal; start / submit-for-approval / comment.
 - Owner login (email/password) with seeded owners; Google OAuth via Emergent-managed session.
 - Owner Overview: stats, approval queue, activity feed.
-- Owner Tasks: kanban + list toggle, create/edit/delete, approve/reject with feedback.
-- Owner Team: directory, add new member (auto-generates slug & PIN).
+- Owner Tasks: kanban + list toggle, create/edit/delete, approve/reject with feedback, assignee filter (v3).
+- Owner Team: directory, add new member, **rotate access** (one-tap regenerate slug+PIN, immediate invalidation, v3), copy link.
+- Owner Weekly Digest (v3): in-app preview page (totals + by-member table), optional Resend email delivery when `RESEND_API_KEY` is set.
+- **Change password** modal (v3): owner-driven, requires current pw + min 8 chars.
 - Owner Finance: completion rate, avg turnaround, payments, rates, budget note (owner-only).
 - Owner Audit: full history of status changes with actor/from/to/note/timestamp.
 - Mobile nav toggle exposes sidebar including logout on ≤600px.
 - Backend privacy: `/team/members` omits `pin` + `slug`; `/team/{slug}` never returns other members or finance; all `/admin/*` require owner token.
-- Testing: 19/19 backend pytest, all target frontend flows verified.
+- Testing: 30/30 backend pytest (iter1: 8, iter2: 11, iter3: 11), all target frontend flows verified.
 
 ## Prioritized backlog (post-MVP)
 ### P1
-- Owner-managed password change UI + endpoint (currently seeded only).
-- Regenerate/rotate a team member's link & PIN from the Team page.
-- Deactivate/reactivate a team member; hide their picker option when inactive.
 - Real payment CRUD (currently returns hardcoded demo finance data).
 - Per-member reporting page (turnaround, completion rate, in-flight load).
-- Task filtering by assignee on owner board.
+- Deactivate/reactivate a team member; hide their picker option when inactive.
+- Cron/scheduler to actually trigger Monday 09:00 UTC digest (currently manual send only).
+- Audit-log rotate access events.
 
 ### P2
 - Attachments beyond deliverable URL.

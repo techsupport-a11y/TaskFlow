@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-import os, uuid, secrets, jwt, bcrypt, logging, requests
+import os, uuid, secrets, jwt, bcrypt, logging, requests, asyncio, resend
+from dateutil import parser as dateparser
 
 ROOT_DIR = Path(__file__).parent
 mongo_url = os.environ["MONGO_URL"]
@@ -21,6 +22,7 @@ TEAM_FORWARD = {"Assigned": "In Progress", "In Progress": "Pending Approval"}
 OWNER_TRANSITIONS = {"Pending Approval": ["Completed", "Revision Required"]}
 
 class LoginInput(BaseModel): email: str; password: str
+class PasswordChange(BaseModel): current_password: str; new_password: str
 class TaskInput(BaseModel):
     title: str; description: str = ""; assignee_id: str; deadline: str; priority: str = "Medium"; instructions: str = ""
 class TaskUpdate(BaseModel):
@@ -164,6 +166,66 @@ async def financials(user=Depends(current_owner)):
     return {"payments": [{"member": "Mahnoor", "period": "March 2026", "amount": 1840, "state": "Ready"}], "rates": [{"member": "Mahnoor", "rate": 28}, {"member": "Areeba", "rate": 18}], "budget_note": "Keep contractor spend aligned with approved weekly scopes.", "reports": {"completion_rate": 78, "avg_turnaround": "2.4 days"}}
 @api.get("/admin/audit")
 async def audit(user=Depends(current_owner)): return await db.audit.find({}, {"_id": 0}).sort("timestamp", -1).to_list(200)
+
+@api.post("/auth/password")
+async def change_password(data: PasswordChange, user=Depends(current_owner)):
+    if len(data.new_password) < 8: raise HTTPException(400, "New password must be at least 8 characters")
+    full = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not verify_pw(data.current_password, full["password_hash"]): raise HTTPException(401, "Current password is incorrect")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"password_hash": hash_pw(data.new_password), "password_updated_at": now()}})
+    return {"ok": True}
+
+@api.post("/admin/team/{member_id}/rotate")
+async def rotate_access(member_id: str, user=Depends(current_owner)):
+    member = await db.team.find_one({"member_id": member_id}, {"_id": 0})
+    if not member: raise HTTPException(404, "Team member not found")
+    new_slug = member["name"].lower().replace(" ", "-") + "-" + secrets.token_urlsafe(5).lower()
+    new_pin = str(secrets.randbelow(9000) + 1000)
+    await db.team.update_one({"member_id": member_id}, {"$set": {"slug": new_slug, "pin": new_pin, "rotated_at": now()}})
+    return {"member_id": member_id, "name": member["name"], "slug": new_slug, "pin": new_pin}
+
+def _week_bounds():
+    n = datetime.now(timezone.utc); start = n - timedelta(days=7)
+    return start.isoformat(), n.isoformat()
+
+async def _build_digest():
+    start, end = _week_bounds(); today = datetime.now(timezone.utc)
+    tasks = await db.tasks.find({}, {"_id": 0}).to_list(500)
+    overdue = [t for t in tasks if t["status"] not in ("Completed",) and t.get("deadline") and dateparser.isoparse(t["deadline"]).replace(tzinfo=timezone.utc) < today]
+    pending = [t for t in tasks if t["status"] == "Pending Approval"]
+    completed_week = [t for t in tasks if t["status"] == "Completed" and t.get("updated_at", "") >= start]
+    by_member = {}
+    for t in tasks:
+        m = t.get("assignee_name", "—")
+        by_member.setdefault(m, {"in_progress": 0, "pending": 0, "completed": 0, "overdue": 0})
+        if t["status"] == "In Progress": by_member[m]["in_progress"] += 1
+        if t["status"] == "Pending Approval": by_member[m]["pending"] += 1
+        if t["status"] == "Completed" and t.get("updated_at", "") >= start: by_member[m]["completed"] += 1
+        if t in overdue: by_member[m]["overdue"] += 1
+    return {"period_start": start, "period_end": end, "overdue": overdue, "pending": pending, "completed_this_week": completed_week, "by_member": by_member, "totals": {"overdue": len(overdue), "pending": len(pending), "completed_this_week": len(completed_week)}}
+
+def _digest_html(d, owner_name):
+    rows = "".join(f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee'>{m}</td><td style='padding:6px 10px;border-bottom:1px solid #eee'>{v['in_progress']}</td><td style='padding:6px 10px;border-bottom:1px solid #eee'>{v['pending']}</td><td style='padding:6px 10px;border-bottom:1px solid #eee'>{v['completed']}</td><td style='padding:6px 10px;border-bottom:1px solid #eee;color:#8e2925'>{v['overdue']}</td></tr>" for m, v in d["by_member"].items())
+    return f"""<div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;color:#0F0E0E"><h2 style="color:#1B211A">TaskFlow · Weekly digest</h2><p>Hi {owner_name}, here's your team snapshot.</p><table style="width:100%;border-collapse:collapse;margin:16px 0"><tr><td style="background:#f5f5f2;padding:14px"><b>Overdue</b><br><span style="font-size:28px">{d['totals']['overdue']}</span></td><td style="background:#f5f5f2;padding:14px"><b>Pending approval</b><br><span style="font-size:28px">{d['totals']['pending']}</span></td><td style="background:#f5f5f2;padding:14px"><b>Completed</b><br><span style="font-size:28px">{d['totals']['completed_this_week']}</span></td></tr></table><h3>By teammate</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#1B211A;color:#fff"><th style="padding:8px 10px;text-align:left">Member</th><th style="padding:8px 10px">In progress</th><th style="padding:8px 10px">Pending</th><th style="padding:8px 10px">Completed</th><th style="padding:8px 10px">Overdue</th></tr></thead><tbody>{rows}</tbody></table></div>"""
+
+@api.get("/admin/digest")
+async def digest_preview(user=Depends(current_owner)):
+    d = await _build_digest(); return {**d, "email_configured": bool(os.environ.get("RESEND_API_KEY"))}
+
+@api.post("/admin/digest/send")
+async def digest_send(user=Depends(current_owner)):
+    key = os.environ.get("RESEND_API_KEY")
+    if not key: raise HTTPException(400, "Resend API key not configured. Set RESEND_API_KEY in backend/.env to enable email delivery.")
+    resend.api_key = key
+    owners = await db.users.find({"role": "owner"}, {"_id": 0}).to_list(10)
+    d = await _build_digest(); results = []
+    for o in owners:
+        try:
+            r = await asyncio.to_thread(resend.Emails.send, {"from": os.environ.get("SENDER_EMAIL", "onboarding@resend.dev"), "to": [o["email"]], "subject": "TaskFlow — Weekly digest", "html": _digest_html(d, o["name"])})
+            results.append({"email": o["email"], "id": r.get("id"), "ok": True})
+        except Exception as e:
+            results.append({"email": o["email"], "ok": False, "error": str(e)})
+    return {"sent": results, "digest": d}
 
 app.include_router(api)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=[os.environ.get("CORS_ORIGINS", "*")], allow_methods=["*"], allow_headers=["*"])

@@ -6,6 +6,7 @@ import {
 import {
   LayoutDashboard, ListTodo, Users, WalletCards, ClipboardList,
   LogOut, Plus, ArrowRight, Check, X, Menu, ChevronRight, Trash2, Pencil,
+  RotateCw, KeyRound, Mail, Send, Copy,
 } from "lucide-react";
 import axios from "axios";
 import "@/App.css";
@@ -37,10 +38,12 @@ function Badge({ status }) {
 function Shell({ user, onLogout }) {
   const loc = useLocation();
   const [open, setOpen] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const nav = [
     { id: "overview", label: "Overview", icon: LayoutDashboard, path: "/admin" },
     { id: "tasks", label: "All tasks", icon: ListTodo, path: "/admin/tasks" },
     { id: "team", label: "Team", icon: Users, path: "/admin/team" },
+    { id: "digest", label: "Weekly digest", icon: Mail, path: "/admin/digest" },
     { id: "finance", label: "Finance", icon: WalletCards, path: "/admin/finance" },
     { id: "audit", label: "Audit trail", icon: ClipboardList, path: "/admin/audit" },
   ];
@@ -82,6 +85,9 @@ function Shell({ user, onLogout }) {
           ))}
         </nav>
         <div className="side-bottom">
+          <button data-testid="change-password-button" onClick={() => setShowPass(true)}>
+            <KeyRound size={16} /> Change password
+          </button>
           <Link data-testid="team-view-link" to="/">
             Open team view <ArrowRight size={14} />
           </Link>
@@ -93,6 +99,79 @@ function Shell({ user, onLogout }) {
       <main className="admin-main">
         <Outlet />
       </main>
+      {showPass && <PasswordModal onClose={() => setShowPass(false)} />}
+    </div>
+  );
+}
+
+function PasswordModal({ onClose }) {
+  const [cur, setCur] = useState("");
+  const [nw, setNw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setErr("");
+    setMsg("");
+    if (nw.length < 8) return setErr("New password must be at least 8 characters.");
+    if (nw !== confirm) return setErr("Passwords don't match.");
+    setBusy(true);
+    try {
+      await api.post("/auth/password", { current_password: cur, new_password: nw });
+      setMsg("Password updated. You'll use the new one next time.");
+      setCur("");
+      setNw("");
+      setConfirm("");
+    } catch (e) {
+      setErr(e.response?.data?.detail || "Could not update password");
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="modal-wrap" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <button className="icon-btn close" onClick={onClose} data-testid="password-modal-close">×</button>
+        <p className="eyebrow">ACCOUNT</p>
+        <h2>Change password</h2>
+        <label>
+          Current password
+          <input
+            data-testid="current-password-input"
+            type="password"
+            value={cur}
+            onChange={(e) => setCur(e.target.value)}
+          />
+        </label>
+        <label>
+          New password
+          <input
+            data-testid="new-password-input"
+            type="password"
+            value={nw}
+            onChange={(e) => setNw(e.target.value)}
+          />
+        </label>
+        <label>
+          Confirm new password
+          <input
+            data-testid="confirm-password-input"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </label>
+        {err && <div className="error" data-testid="password-error">{err}</div>}
+        {msg && <div className="hint" data-testid="password-success">{msg}</div>}
+        <button
+          data-testid="password-save-button"
+          className="primary wide"
+          disabled={busy || !cur || !nw || !confirm}
+          onClick={submit}
+        >
+          Update password <ArrowRight size={16} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -676,6 +755,7 @@ function AdminTasks() {
   const [members, setMembers] = useState([]);
   const [view, setView] = useState("kanban");
   const [filter, setFilter] = useState("All");
+  const [assignee, setAssignee] = useState("All");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState(null);
   const [rejecting, setRejecting] = useState(null);
@@ -719,7 +799,8 @@ function AdminTasks() {
     load();
   };
 
-  const filtered = filter === "All" ? tasks : tasks.filter((t) => t.status === filter);
+  const scoped = assignee === "All" ? tasks : tasks.filter((t) => t.assignee_id === assignee);
+  const filtered = filter === "All" ? scoped : scoped.filter((t) => t.status === filter);
 
   return (
     <>
@@ -754,18 +835,32 @@ function AdminTasks() {
             List
           </button>
         </div>
-        <select
-          data-testid="filter-status"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="All">All statuses</option>
-          {statuses.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <div className="filters">
+          <select
+            data-testid="filter-assignee"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+          >
+            <option value="All">Everyone</option>
+            {members.map((m) => (
+              <option key={m.member_id} value={m.member_id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <select
+            data-testid="filter-status"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="All">All statuses</option>
+            {statuses.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {view === "kanban" ? (
@@ -774,9 +869,9 @@ function AdminTasks() {
             <div className="kanban-col" key={s} data-testid={`kanban-col-${s.toLowerCase().replaceAll(" ", "-")}`}>
               <div className="kanban-head">
                 <h3>{s}</h3>
-                <span>{tasks.filter((t) => t.status === s).length}</span>
+                <span>{scoped.filter((t) => t.status === s).length}</span>
               </div>
-              {tasks
+              {scoped
                 .filter((t) => t.status === s)
                 .map((t) => (
                   <div className="kanban-card" key={t.id} data-testid={`admin-task-${t.id}`}>
@@ -836,7 +931,7 @@ function AdminTasks() {
                     )}
                   </div>
                 ))}
-              {!tasks.filter((t) => t.status === s).length && (
+              {!scoped.filter((t) => t.status === s).length && (
                 <div className="empty">Empty</div>
               )}
             </div>
@@ -960,6 +1055,8 @@ function AdminTeam() {
   const [name, setName] = useState("");
   const [cls, setCls] = useState("Junior");
   const [msg, setMsg] = useState("");
+  const [rotated, setRotated] = useState(null);
+  const [rotatingId, setRotatingId] = useState(null);
 
   const load = () => api.get("/admin/team").then((r) => setTeam(r.data));
   useEffect(() => {
@@ -974,13 +1071,30 @@ function AdminTeam() {
     load();
   };
 
+  const rotate = async (m) => {
+    if (!window.confirm(`Rotate ${m.name}'s access? Their current link and PIN will stop working immediately.`)) return;
+    setRotatingId(m.member_id);
+    try {
+      const r = await api.post(`/admin/team/${m.member_id}/rotate`);
+      setRotated(r.data);
+      load();
+    } finally {
+      setRotatingId(null);
+    }
+  };
+
+  const copyLink = (slug) => {
+    const url = `${window.location.origin}/team/${slug}`;
+    navigator.clipboard?.writeText(url);
+  };
+
   return (
     <>
       <div className="admin-head">
         <div>
           <p className="eyebrow">TEAM DIRECTORY</p>
           <h1>Team members</h1>
-          <p className="muted">Generate access links and manage classifications.</p>
+          <p className="muted">Generate access links and rotate credentials in one tap.</p>
         </div>
       </div>
       <section className="dash-section" data-testid="team-directory">
@@ -1011,6 +1125,7 @@ function AdminTeam() {
               <th>Classification</th>
               <th>Access link</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -1019,11 +1134,168 @@ function AdminTeam() {
                 <td>{m.name}</td>
                 <td>{m.classification}</td>
                 <td>
-                  <code>/team/{m.slug}</code>
+                  <code>/team/{m.slug}</code>{" "}
+                  <button
+                    className="ghost"
+                    data-testid={`copy-link-${m.member_id}`}
+                    onClick={() => copyLink(m.slug)}
+                    title="Copy link"
+                  >
+                    <Copy size={12} />
+                  </button>
                 </td>
                 <td>{m.active ? "Active" : "Paused"}</td>
+                <td className="row-actions">
+                  <button
+                    data-testid={`rotate-access-${m.member_id}`}
+                    className="ghost"
+                    disabled={rotatingId === m.member_id}
+                    onClick={() => rotate(m)}
+                  >
+                    <RotateCw size={12} /> Rotate access
+                  </button>
+                </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </section>
+      {rotated && (
+        <div className="modal-wrap" onClick={() => setRotated(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              data-testid="rotated-close"
+              className="icon-btn close"
+              onClick={() => setRotated(null)}
+            >
+              ×
+            </button>
+            <p className="eyebrow">NEW ACCESS FOR {rotated.name.toUpperCase()}</p>
+            <h2>Share these once</h2>
+            <p className="muted">The previous link and PIN no longer work. Send these to {rotated.name} securely.</p>
+            <div className="rotated-block">
+              <div>
+                <small>LINK</small>
+                <b data-testid="rotated-slug">/team/{rotated.slug}</b>
+              </div>
+              <div>
+                <small>PIN</small>
+                <b data-testid="rotated-pin">{rotated.pin}</b>
+              </div>
+            </div>
+            <button
+              className="primary wide"
+              data-testid="rotated-copy"
+              onClick={() => copyLink(rotated.slug)}
+            >
+              Copy full link <Copy size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* -------------------- Owner: Weekly Digest -------------------- */
+function AdminDigest() {
+  const [data, setData] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState("");
+
+  const load = () => api.get("/admin/digest").then((r) => setData(r.data)).catch(() => setData(null));
+  useEffect(() => {
+    load();
+  }, []);
+
+  const send = async () => {
+    setSending(true);
+    setResult("");
+    try {
+      const r = await api.post("/admin/digest/send");
+      setResult(`Sent to ${r.data.sent.filter((s) => s.ok).length} of ${r.data.sent.length} owners.`);
+    } catch (e) {
+      setResult(e.response?.data?.detail || "Could not send digest.");
+    }
+    setSending(false);
+  };
+
+  if (!data) return <div className="loading">Loading digest…</div>;
+  return (
+    <>
+      <div className="admin-head">
+        <div>
+          <p className="eyebrow">WEEKLY DIGEST · MONDAY 09:00 UTC</p>
+          <h1>This week at a glance</h1>
+          <p className="muted">
+            Preview what owners see in their Monday email.{" "}
+            {data.email_configured
+              ? "Email delivery is active via Resend."
+              : "Set RESEND_API_KEY in backend/.env to enable email delivery."}
+          </p>
+        </div>
+        <button
+          data-testid="send-digest-button"
+          className="primary"
+          onClick={send}
+          disabled={sending || !data.email_configured}
+          title={data.email_configured ? "Send now" : "Configure Resend to enable"}
+        >
+          <Send size={15} /> {sending ? "Sending…" : "Send now"}
+        </button>
+      </div>
+      {result && <div className="hint" data-testid="digest-result">{result}</div>}
+      <div className="stat-grid">
+        <div className="stat-card red" data-testid="digest-overdue">
+          <span>Overdue</span>
+          <strong>{data.totals.overdue}</strong>
+          <small>past deadline</small>
+        </div>
+        <div className="stat-card sand" data-testid="digest-pending">
+          <span>Awaiting approval</span>
+          <strong>{data.totals.pending}</strong>
+          <small>needs a look</small>
+        </div>
+        <div className="stat-card sage" data-testid="digest-completed">
+          <span>Completed this week</span>
+          <strong>{data.totals.completed_this_week}</strong>
+          <small>last 7 days</small>
+        </div>
+      </div>
+      <section className="dash-section" data-testid="digest-by-member">
+        <div className="section-title">
+          <div>
+            <p className="eyebrow">BY TEAMMATE</p>
+            <h2>Where things stand</h2>
+          </div>
+        </div>
+        <table className="task-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>In progress</th>
+              <th>Pending</th>
+              <th>Completed</th>
+              <th>Overdue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(data.by_member).map(([m, v]) => (
+              <tr key={m} data-testid={`digest-row-${m.toLowerCase().replaceAll(" ", "-")}`}>
+                <td>{m}</td>
+                <td>{v.in_progress}</td>
+                <td>{v.pending}</td>
+                <td>{v.completed}</td>
+                <td style={{ color: v.overdue ? "#8e2925" : "inherit" }}>{v.overdue}</td>
+              </tr>
+            ))}
+            {!Object.keys(data.by_member).length && (
+              <tr>
+                <td colSpan="5" className="empty">
+                  No activity yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </section>
@@ -1246,6 +1518,7 @@ function App() {
         <Route index element={<AdminHome user={user} />} />
         <Route path="tasks" element={<AdminTasks />} />
         <Route path="team" element={<AdminTeam />} />
+        <Route path="digest" element={<AdminDigest />} />
         <Route path="finance" element={<AdminFinance />} />
         <Route path="audit" element={<AdminAudit />} />
       </Route>
