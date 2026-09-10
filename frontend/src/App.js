@@ -340,7 +340,7 @@ function Team() {
             <option value="">Select your name</option>
             {members.map((m) => (
               <option key={m.member_id} value={m.member_id}>
-                {`${m.name} — ${m.classification}`}
+                {m.name}
               </option>
             ))}
           </select>
@@ -1138,6 +1138,12 @@ function AdminTeam() {
     load();
   };
 
+  const removeMember = async (m) => {
+    if (!window.confirm(`Permanently delete ${m.name}? This cannot be undone. Their existing tasks will keep showing their name, but their access link and PIN stop working immediately.`)) return;
+    await api.delete(`/admin/team/${m.member_id}`);
+    load();
+  };
+
   const openPin = async (m) => {
     setPinPanel(m);
     setPinError("");
@@ -1249,6 +1255,13 @@ function AdminTeam() {
                         <UserCheck size={12} /> Reactivate
                       </>
                     )}
+                  </button>
+                  <button
+                    data-testid={`delete-member-${m.member_id}`}
+                    className="ghost"
+                    onClick={() => removeMember(m)}
+                  >
+                    <Trash2 size={12} /> Delete
                   </button>
                 </td>
               </tr>

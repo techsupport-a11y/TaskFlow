@@ -176,6 +176,11 @@ async def toggle_team_member(member_id: str, user=Depends(current_owner)):
     new_active = not member.get("active", True)
     await db.team.update_one({"member_id": member_id}, {"$set": {"active": new_active}})
     return {"ok": True, "active": new_active}
+@api.delete("/admin/team/{member_id}")
+async def remove_team_member(member_id: str, user=Depends(current_owner)):
+    result = await db.team.delete_one({"member_id": member_id})
+    if result.deleted_count == 0: raise HTTPException(404, "Team member not found")
+    return {"ok": True}
 @api.get("/admin/financials")
 async def financials(user=Depends(current_owner)):
     return {"payments": [{"member": "Mahnoor", "period": "March 2026", "amount": 1840, "state": "Ready"}], "rates": [{"member": "Mahnoor", "rate": 28}, {"member": "Areeba", "rate": 18}], "budget_note": "Keep contractor spend aligned with approved weekly scopes.", "reports": {"completion_rate": 78, "avg_turnaround": "2.4 days"}}
