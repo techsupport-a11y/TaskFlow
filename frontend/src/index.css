@@ -90,7 +90,7 @@ code{font:12px var(--font-mono);color:var(--ink-2)}
 .login-card{width:min(430px,88%);align-self:center;justify-self:center;background:#fff;padding:40px;border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
 .login-card h2,.entry-panel h1{font:500 28px var(--font-serif);margin:0 0 6px;color:var(--ink);letter-spacing:-.6px}
 .login-card label,.entry-panel label,.modal label{display:grid;gap:6px;font:500 12px var(--font-mono);color:var(--muted);margin-top:18px;letter-spacing:.6px;text-transform:uppercase}
-.login-card input,.entry-panel input,.entry-panel select,.modal input,.modal select{border:1px solid var(--line);padding:11px 13px;border-radius:var(--radius-sm);outline:0;color:var(--ink);background:#fff;font-size:13.5px;transition:border-color var(--transition),box-shadow var(--transition);font-family:var(--font-sans)}
+.login-card input,.entry-panel input,.entry-panel select,.modal input,.modal select{border:1px solid var(--line);height:44px;padding:0 13px;line-height:44px;border-radius:var(--radius-sm);outline:0;color:var(--ink);background:#fff;font-size:13.5px;transition:border-color var(--transition),box-shadow var(--transition);font-family:var(--font-sans);box-sizing:border-box}
 .login-card input:focus,.entry-panel input:focus,.entry-panel select:focus,.modal input:focus,.modal select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,24,68,.08)}
 .or{margin:22px 0;display:flex;align-items:center;gap:10px;color:var(--muted-3);font-size:11px;text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)}
 .or:before,.or:after{content:'';height:1px;background:var(--line);flex:1}
@@ -161,7 +161,7 @@ code{font:12px var(--font-mono);color:var(--ink-2)}
 
 /* --- Admin shell --- */
 .admin-shell{display:flex;min-height:100vh;background:var(--bg)}
-.admin-shell aside{width:240px;background:var(--panel-dark);color:#fff;padding:22px 14px;display:flex;flex-direction:column;flex:none;position:relative}
+.admin-shell aside{width:240px;background:var(--panel-dark);color:#fff;padding:22px 14px;display:flex;flex-direction:column;flex:none;position:sticky;top:0;align-self:flex-start;height:100vh}
 .admin-shell aside::before{content:'';position:absolute;inset:0;background:radial-gradient(500px 400px at 30% 0%,#1a2246 0%,transparent 60%);pointer-events:none}
 .admin-shell aside>*{position:relative;z-index:1}
 .admin-shell aside .brand{color:#fff;padding:0 8px}
