@@ -33,6 +33,7 @@ class CommentInput(BaseModel): comment: str
 class DeliverableInput(BaseModel): deliverable_url: str
 class TeamInput(BaseModel): name: str; classification: str = "Junior"
 class PinInput(BaseModel): member_id: str; pin: str
+class PinSetInput(BaseModel): pin: str
 class RejectInput(BaseModel): feedback: str
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -161,7 +162,7 @@ async def reject(task_id: str, data: RejectInput, user=Depends(current_owner)):
 @api.post("/admin/team")
 async def add_team(data: TeamInput, user=Depends(current_owner)):
     item = {"member_id": "member_"+uuid.uuid4().hex[:10], "name": data.name, "classification": data.classification, "pin": str(secrets.randbelow(9000)+1000), "slug": data.name.lower().replace(" ", "-")+"-"+secrets.token_urlsafe(5).lower(), "active": True, "created_at": now()}
-    await db.team.insert_one(item); return {k:v for k,v in item.items() if k != "pin"}
+    await db.team.insert_one(item); return clean_task(item)
 @api.get("/admin/financials")
 async def financials(user=Depends(current_owner)):
     return {"payments": [{"member": "Mahnoor", "period": "March 2026", "amount": 1840, "state": "Ready"}], "rates": [{"member": "Mahnoor", "rate": 28}, {"member": "Areeba", "rate": 18}], "budget_note": "Keep contractor spend aligned with approved weekly scopes.", "reports": {"completion_rate": 78, "avg_turnaround": "2.4 days"}}
@@ -175,6 +176,18 @@ async def change_password(data: PasswordChange, user=Depends(current_owner)):
     if not verify_pw(data.current_password, full["password_hash"]): raise HTTPException(401, "Current password is incorrect")
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"password_hash": hash_pw(data.new_password), "password_updated_at": now()}})
     return {"ok": True}
+
+@api.get("/admin/team/{member_id}/pin")
+async def get_pin(member_id: str, user=Depends(current_owner)):
+    member = await db.team.find_one({"member_id": member_id}, {"_id": 0, "pin": 1})
+    if not member: raise HTTPException(404, "Team member not found")
+    return {"pin": member["pin"]}
+@api.post("/admin/team/{member_id}/pin")
+async def set_pin(member_id: str, data: PinSetInput, user=Depends(current_owner)):
+    if not data.pin.isdigit() or len(data.pin) != 4: raise HTTPException(400, "PIN must be exactly 4 digits")
+    result = await db.team.update_one({"member_id": member_id}, {"$set": {"pin": data.pin, "rotated_at": now()}})
+    if result.matched_count == 0: raise HTTPException(404, "Team member not found")
+    return {"ok": True, "pin": data.pin}
 
 @api.post("/admin/team/{member_id}/rotate")
 async def rotate_access(member_id: str, user=Depends(current_owner)):

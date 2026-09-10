@@ -57,7 +57,7 @@ function Shell({ user, onLogout }) {
       <aside className={open ? "open" : ""}>
         <div className="side-top">
           <div className="brand">
-            <span className="brand-mark">T</span>
+            <img src="/Favicon.png" alt="TaskFlow" className="brand-mark" />
             <span>Task<span>Flow</span></span>
           </div>
           <button
@@ -202,7 +202,7 @@ function Login({ setUser }) {
     <div className="login-page">
       <div className="login-aside">
         <div className="brand light">
-          <span className="brand-mark">T</span>
+          <img src="/Favicon.png" alt="TaskFlow" className="brand-mark" />
           <span>Task<span>Flow</span></span>
         </div>
         <div>
@@ -307,7 +307,7 @@ function Team() {
     <div className="login-page team-login">
       <div className="login-aside">
         <div className="brand light">
-          <span className="brand-mark">T</span>
+          <img src="/Favicon.png" alt="TaskFlow" className="brand-mark" />
           <span>Task<span>Flow</span></span>
         </div>
         <div>
@@ -414,7 +414,7 @@ function TeamBoard({ data, reload }) {
     <div className="team-page">
       <header className="team-top">
         <div className="brand">
-          <span className="brand-mark">T</span>
+          <img src="/Favicon.png" alt="TaskFlow" className="brand-mark" />
           <span>Task<span>Flow</span></span>
         </div>
         <div className="member-chip" data-testid="team-member-chip">
@@ -1079,9 +1079,12 @@ function AdminTeam() {
   const [team, setTeam] = useState([]);
   const [name, setName] = useState("");
   const [cls, setCls] = useState("Junior");
-  const [msg, setMsg] = useState("");
   const [rotated, setRotated] = useState(null);
   const [rotatingId, setRotatingId] = useState(null);
+  const [pinPanel, setPinPanel] = useState(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
 
   const load = () => api.get("/admin/team").then((r) => setTeam(r.data));
   useEffect(() => {
@@ -1092,7 +1095,7 @@ function AdminTeam() {
     if (!name.trim()) return;
     const r = await api.post("/admin/team", { name, classification: cls });
     setName("");
-    setMsg(`Added ${r.data.name}. Share their link: /team/${r.data.slug}`);
+    setRotated(r.data);
     load();
   };
 
@@ -1111,6 +1114,31 @@ function AdminTeam() {
   const copyLink = (slug) => {
     const url = `${window.location.origin}/team/${slug}`;
     navigator.clipboard?.writeText(url);
+  };
+
+  const openPin = async (m) => {
+    setPinPanel(m);
+    setPinError("");
+    setPinValue("");
+    const r = await api.get(`/admin/team/${m.member_id}/pin`);
+    setPinValue(r.data.pin);
+  };
+
+  const savePin = async () => {
+    if (!/^\d{4}$/.test(pinValue)) {
+      setPinError("PIN must be exactly 4 digits");
+      return;
+    }
+    setPinSaving(true);
+    setPinError("");
+    try {
+      await api.post(`/admin/team/${pinPanel.member_id}/pin`, { pin: pinValue });
+      setPinPanel(null);
+    } catch (e) {
+      setPinError(e.response?.data?.detail || "Could not set PIN");
+    } finally {
+      setPinSaving(false);
+    }
   };
 
   return (
@@ -1142,7 +1170,6 @@ function AdminTeam() {
             <Plus size={15} /> Add member
           </button>
         </div>
-        {msg && <p className="hint" data-testid="add-member-hint">{msg}</p>}
         <table className="task-table">
           <thead>
             <tr>
@@ -1172,6 +1199,13 @@ function AdminTeam() {
                 <td>{m.active ? "Active" : "Paused"}</td>
                 <td className="row-actions">
                   <button
+                    data-testid={`view-pin-${m.member_id}`}
+                    className="ghost"
+                    onClick={() => openPin(m)}
+                  >
+                    <KeyRound size={12} /> PIN
+                  </button>
+                  <button
                     data-testid={`rotate-access-${m.member_id}`}
                     className="ghost"
                     disabled={rotatingId === m.member_id}
@@ -1195,9 +1229,13 @@ function AdminTeam() {
             >
               ×
             </button>
-            <p className="eyebrow">NEW ACCESS FOR {rotated.name.toUpperCase()}</p>
+            <p className="eyebrow">{rotated.created_at ? "NEW MEMBER" : "NEW ACCESS"} FOR {rotated.name.toUpperCase()}</p>
             <h2>Share these once</h2>
-            <p className="muted">The previous link and PIN no longer work. Send these to {rotated.name} securely.</p>
+            <p className="muted">
+              {rotated.created_at
+                ? "Send these to " + rotated.name + " securely so they can open their board."
+                : "The previous link and PIN no longer work. Send these to " + rotated.name + " securely."}
+            </p>
             <div className="rotated-block">
               <div>
                 <small>LINK</small>
@@ -1214,6 +1252,45 @@ function AdminTeam() {
               onClick={() => copyLink(rotated.slug)}
             >
               Copy full link <Copy size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+      {pinPanel && (
+        <div className="modal-wrap" onClick={() => setPinPanel(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              data-testid="pin-panel-close"
+              className="icon-btn close"
+              onClick={() => setPinPanel(null)}
+            >
+              ×
+            </button>
+            <p className="eyebrow">ACCESS PIN FOR {pinPanel.name.toUpperCase()}</p>
+            <h2>View or set PIN</h2>
+            <p className="muted">This is the 4-digit PIN {pinPanel.name} uses with their access link. Change it to set a custom code.</p>
+            <label>
+              4-digit PIN
+              <input
+                data-testid="pin-panel-input"
+                inputMode="numeric"
+                maxLength="4"
+                value={pinValue}
+                onChange={(e) => setPinValue(e.target.value.replace(/\D/g, ""))}
+              />
+            </label>
+            {pinError && (
+              <div data-testid="pin-panel-error" className="error">
+                {pinError}
+              </div>
+            )}
+            <button
+              className="primary wide"
+              data-testid="pin-panel-save"
+              disabled={pinSaving || pinValue.length !== 4}
+              onClick={savePin}
+            >
+              {pinSaving ? "Saving…" : "Save PIN"}
             </button>
           </div>
         </div>
