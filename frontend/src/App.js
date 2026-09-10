@@ -1051,13 +1051,13 @@ function AdminTasks() {
           <tbody>
             {filtered.map((t) => (
               <tr key={t.id} data-testid={`row-task-${t.id}`}>
-                <td>{t.title}</td>
-                <td>{t.assignee_name}</td>
-                <td>
+                <td data-label="Title">{t.title}</td>
+                <td data-label="Assignee">{t.assignee_name}</td>
+                <td data-label="Status">
                   <Badge status={t.status} />
                 </td>
-                <td>{t.priority}</td>
-                <td>{fmt(t.deadline)}</td>
+                <td data-label="Priority">{t.priority}</td>
+                <td data-label="Deadline">{fmt(t.deadline)}</td>
                 <td className="row-actions">
                   {t.status === "Pending Approval" && (
                     <>
@@ -1152,6 +1152,7 @@ function AdminTasks() {
 function AdminTeam() {
   const [team, setTeam] = useState([]);
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [cls, setCls] = useState("Junior");
   const [rotated, setRotated] = useState(null);
   const [rotatingId, setRotatingId] = useState(null);
@@ -1166,7 +1167,11 @@ function AdminTeam() {
   }, []);
 
   const add = async () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameError("Enter a name before adding a member.");
+      return;
+    }
+    setNameError("");
     const r = await api.post("/admin/team", { name, classification: cls });
     setName("");
     setRotated(r.data);
@@ -1243,7 +1248,10 @@ function AdminTeam() {
             data-testid="new-member-name"
             placeholder="Full name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError("");
+            }}
           />
           <select
             data-testid="new-member-class"
@@ -1257,6 +1265,11 @@ function AdminTeam() {
             <Plus size={15} /> Add member
           </button>
         </div>
+        {nameError && (
+          <p className="error" data-testid="new-member-name-error">
+            {nameError}
+          </p>
+        )}
         <table className="task-table">
           <thead>
             <tr>
@@ -1271,10 +1284,10 @@ function AdminTeam() {
           <tbody>
             {team.map((m) => (
               <tr key={m.member_id} data-testid={`team-row-${m.member_id}`}>
-                <td>{m.name}</td>
-                <td>{m.classification}</td>
-                <td>{m.email || <span className="muted small">Not set</span>}</td>
-                <td>
+                <td data-label="Name">{m.name}</td>
+                <td data-label="Classification">{m.classification}</td>
+                <td data-label="Email">{m.email || <span className="muted small">Not set</span>}</td>
+                <td data-label="Access link">
                   <code>/team/{m.slug}</code>{" "}
                   <button
                     className="ghost"
@@ -1285,7 +1298,7 @@ function AdminTeam() {
                     <Copy size={12} />
                   </button>
                 </td>
-                <td>{m.active ? "Active" : "Paused"}</td>
+                <td data-label="Status">{m.active ? "Active" : "Paused"}</td>
                 <td className="row-actions">
                   <button
                     data-testid={`view-pin-${m.member_id}`}
@@ -1499,11 +1512,11 @@ function AdminDigest() {
           <tbody>
             {Object.entries(data.by_member).map(([m, v]) => (
               <tr key={m} data-testid={`digest-row-${m.toLowerCase().replaceAll(" ", "-")}`}>
-                <td>{m}</td>
-                <td>{v.in_progress}</td>
-                <td>{v.pending}</td>
-                <td>{v.completed}</td>
-                <td style={{ color: v.overdue ? "#8e2925" : "inherit" }}>{v.overdue}</td>
+                <td data-label="Member">{m}</td>
+                <td data-label="In progress">{v.in_progress}</td>
+                <td data-label="Pending">{v.pending}</td>
+                <td data-label="Completed">{v.completed}</td>
+                <td data-label="Overdue" style={{ color: v.overdue ? "#8e2925" : "inherit" }}>{v.overdue}</td>
               </tr>
             ))}
             {!Object.keys(data.by_member).length && (
@@ -1570,10 +1583,10 @@ function AdminFinance() {
             <tbody>
               {data.payments.map((p, i) => (
                 <tr key={i}>
-                  <td>{p.member}</td>
-                  <td>{p.period}</td>
-                  <td>${p.amount}</td>
-                  <td>{p.state}</td>
+                  <td data-label="Member">{p.member}</td>
+                  <td data-label="Period">{p.period}</td>
+                  <td data-label="Amount">${p.amount}</td>
+                  <td data-label="State">{p.state}</td>
                 </tr>
               ))}
             </tbody>
@@ -1596,8 +1609,8 @@ function AdminFinance() {
             <tbody>
               {data.rates.map((r, i) => (
                 <tr key={i}>
-                  <td>{r.member}</td>
-                  <td>${r.rate}/hr</td>
+                  <td data-label="Member">{r.member}</td>
+                  <td data-label="Rate">${r.rate}/hr</td>
                 </tr>
               ))}
             </tbody>
@@ -1639,14 +1652,14 @@ function AdminAudit() {
           <tbody>
             {log.map((a) => (
               <tr key={a.id} data-testid={`audit-row-${a.id}`}>
-                <td>{a.actor}</td>
-                <td><code>{a.task_id}</code></td>
-                <td>{a.from_status}</td>
-                <td>
+                <td data-label="Actor">{a.actor}</td>
+                <td data-label="Task"><code>{a.task_id}</code></td>
+                <td data-label="From">{a.from_status}</td>
+                <td data-label="To">
                   <Badge status={a.to_status === "—" ? "Assigned" : a.to_status} />
                 </td>
-                <td>{a.note || "—"}</td>
-                <td>{new Date(a.timestamp).toLocaleString("en-US")}</td>
+                <td data-label="Note">{a.note || "—"}</td>
+                <td data-label="When">{new Date(a.timestamp).toLocaleString("en-US")}</td>
               </tr>
             ))}
             {!log.length && (
