@@ -6,7 +6,7 @@ import {
 import {
   LayoutDashboard, ListTodo, Users, WalletCards, ClipboardList,
   LogOut, Plus, ArrowRight, Check, X, Menu, ChevronRight, Trash2, Pencil,
-  RotateCw, KeyRound, Mail, Send, Copy,
+  RotateCw, KeyRound, Mail, Send, Copy, UserX, UserCheck,
 } from "lucide-react";
 import axios from "axios";
 import "@/App.css";
@@ -405,8 +405,9 @@ function TeamBoard({ data, reload }) {
   };
   const addComment = async (t) => {
     if (!comment.trim()) return;
-    await api.post(`/team/${data.member.slug}/tasks/${t.id}/comments`, { comment });
+    const r = await api.post(`/team/${data.member.slug}/tasks/${t.id}/comments`, { comment });
     setComment("");
+    setSelected((prev) => (prev ? { ...prev, comments: [...(prev.comments || []), r.data] } : prev));
     reload();
   };
 
@@ -517,7 +518,17 @@ function TeamBoard({ data, reload }) {
                 Start working <ArrowRight size={16} />
               </button>
             )}
-            {(selected.status === "In Progress" || selected.status === "Revision Required") && (
+            {selected.status === "Revision Required" && (
+              <button
+                data-testid="resume-task-button"
+                className="primary wide"
+                disabled={busy}
+                onClick={() => startTask(selected)}
+              >
+                Move back to In Progress <ArrowRight size={16} />
+              </button>
+            )}
+            {selected.status === "In Progress" && (
               <>
                 <label>
                   Deliverable link
@@ -531,16 +542,11 @@ function TeamBoard({ data, reload }) {
                 <button
                   data-testid="submit-approval-button"
                   className="primary wide"
-                  disabled={!url || busy || selected.status === "Revision Required"}
+                  disabled={!url || busy}
                   onClick={() => submitForApproval(selected)}
                 >
                   Submit for approval <ArrowRight size={17} />
                 </button>
-                {selected.status === "Revision Required" && (
-                  <p className="muted small">
-                    Revision requested: move it back to In Progress first.
-                  </p>
-                )}
               </>
             )}
             <div className="comments">
@@ -689,6 +695,11 @@ function TaskModal({ initial, members, onClose, onSave }) {
       priority: "Medium",
     }
   );
+  useEffect(() => {
+    if (!initial && !f.assignee_id && members[0]) {
+      setF((prev) => ({ ...prev, assignee_id: members[0].member_id }));
+    }
+  }, [members, initial, f.assignee_id]);
   return (
     <div className="modal-wrap" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -924,6 +935,10 @@ function AdminTasks() {
                     <p className="k-desc">{t.description}</p>
                     <div className="k-meta">
                       <span>{t.assignee_name}</span>
+                      <span className="k-priority">
+                        <span className="priority-dot" data-priority={t.priority}></span>
+                        {t.priority}
+                      </span>
                       <span>{fmt(t.deadline)}</span>
                     </div>
                     {t.deliverable_url && (
@@ -1116,6 +1131,13 @@ function AdminTeam() {
     navigator.clipboard?.writeText(url);
   };
 
+  const toggleActive = async (m) => {
+    const verb = m.active ? "Deactivate" : "Reactivate";
+    if (!window.confirm(`${verb} ${m.name}? ${m.active ? "Their access link and PIN will stop working." : "Their previous access link and PIN will work again."}`)) return;
+    await api.post(`/admin/team/${m.member_id}/toggle`);
+    load();
+  };
+
   const openPin = async (m) => {
     setPinPanel(m);
     setPinError("");
@@ -1212,6 +1234,21 @@ function AdminTeam() {
                     onClick={() => rotate(m)}
                   >
                     <RotateCw size={12} /> Rotate access
+                  </button>
+                  <button
+                    data-testid={`toggle-active-${m.member_id}`}
+                    className="ghost"
+                    onClick={() => toggleActive(m)}
+                  >
+                    {m.active ? (
+                      <>
+                        <UserX size={12} /> Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck size={12} /> Reactivate
+                      </>
+                    )}
                   </button>
                 </td>
               </tr>
@@ -1315,7 +1352,11 @@ function AdminDigest() {
     setResult("");
     try {
       const r = await api.post("/admin/digest/send");
-      setResult(`Sent to ${r.data.sent.filter((s) => s.ok).length} of ${r.data.sent.length} owners.`);
+      const failed = r.data.sent.filter((s) => !s.ok);
+      const okCount = r.data.sent.length - failed.length;
+      let msg = `Sent to ${okCount} of ${r.data.sent.length} owners.`;
+      if (failed.length) msg += " " + failed.map((f) => `${f.email}: ${f.error}`).join(" ");
+      setResult(msg);
     } catch (e) {
       setResult(e.response?.data?.detail || "Could not send digest.");
     }
@@ -1332,7 +1373,7 @@ function AdminDigest() {
           <p className="muted">
             Preview what owners see in their Monday email.{" "}
             {data.email_configured
-              ? "Email delivery is active via Resend."
+              ? "Resend is configured. Delivery still depends on your Resend account's sending limits."
               : "Set RESEND_API_KEY in backend/.env to enable email delivery."}
           </p>
         </div>

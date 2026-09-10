@@ -19,7 +19,7 @@ db = client[os.environ["DB_NAME"]]
 app = FastAPI(title="TaskFlow API")
 api = APIRouter(prefix="/api")
 STATUSES = ["Assigned", "In Progress", "Pending Approval", "Revision Required", "Completed"]
-TEAM_FORWARD = {"Assigned": "In Progress", "In Progress": "Pending Approval"}
+TEAM_FORWARD = {"Assigned": "In Progress", "In Progress": "Pending Approval", "Revision Required": "In Progress"}
 OWNER_TRANSITIONS = {"Pending Approval": ["Completed", "Revision Required"]}
 
 class LoginInput(BaseModel): email: str; password: str
@@ -143,9 +143,15 @@ async def create_task(data: TaskInput, user=Depends(current_owner)):
 @api.patch("/admin/tasks/{task_id}")
 async def edit_task(task_id: str, data: TaskUpdate, user=Depends(current_owner)):
     patch = {k:v for k,v in data.model_dump().items() if v is not None}
+    old = await db.tasks.find_one({"id": task_id}, {"_id": 0})
+    if not old: raise HTTPException(404, "Task not found")
     if "assignee_id" in patch:
         member = await db.team.find_one({"member_id": patch["assignee_id"]}, {"_id": 0}); patch["assignee_name"] = member["name"] if member else ""
-    await db.tasks.update_one({"id": task_id}, {"$set": patch}); return clean_task(await db.tasks.find_one({"id": task_id}, {"_id": 0}))
+    patch["updated_at"] = now()
+    await db.tasks.update_one({"id": task_id}, {"$set": patch})
+    changes = [f"{field.replace('_', ' ').title()}: {old.get(field)} → {patch[field]}" for field in ("title", "description", "instructions", "assignee_name", "deadline", "priority") if field in patch and patch[field] != old.get(field)]
+    if changes: await log_change(task_id, user["name"], old["status"], old["status"], "; ".join(changes))
+    return clean_task(await db.tasks.find_one({"id": task_id}, {"_id": 0}))
 @api.delete("/admin/tasks/{task_id}")
 async def delete_task(task_id: str, user=Depends(current_owner)): await db.tasks.delete_one({"id": task_id}); return {"ok": True}
 @api.post("/admin/tasks/{task_id}/approve")
@@ -163,6 +169,13 @@ async def reject(task_id: str, data: RejectInput, user=Depends(current_owner)):
 async def add_team(data: TeamInput, user=Depends(current_owner)):
     item = {"member_id": "member_"+uuid.uuid4().hex[:10], "name": data.name, "classification": data.classification, "pin": str(secrets.randbelow(9000)+1000), "slug": data.name.lower().replace(" ", "-")+"-"+secrets.token_urlsafe(5).lower(), "active": True, "created_at": now()}
     await db.team.insert_one(item); return clean_task(item)
+@api.post("/admin/team/{member_id}/toggle")
+async def toggle_team_member(member_id: str, user=Depends(current_owner)):
+    member = await db.team.find_one({"member_id": member_id}, {"_id": 0})
+    if not member: raise HTTPException(404, "Team member not found")
+    new_active = not member.get("active", True)
+    await db.team.update_one({"member_id": member_id}, {"$set": {"active": new_active}})
+    return {"ok": True, "active": new_active}
 @api.get("/admin/financials")
 async def financials(user=Depends(current_owner)):
     return {"payments": [{"member": "Mahnoor", "period": "March 2026", "amount": 1840, "state": "Ready"}], "rates": [{"member": "Mahnoor", "rate": 28}, {"member": "Areeba", "rate": 18}], "budget_note": "Keep contractor spend aligned with approved weekly scopes.", "reports": {"completion_rate": 78, "avg_turnaround": "2.4 days"}}

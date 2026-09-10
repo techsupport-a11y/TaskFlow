@@ -228,7 +228,9 @@ code{font:12px var(--font-mono);color:var(--ink-2)}
 .k-actions{display:flex;gap:2px}
 .k-actions .icon-btn{padding:3px}
 .k-desc{font-size:11.5px;color:var(--muted);margin:6px 0;line-height:1.5}
-.k-meta{display:flex;justify-content:space-between;font:500 11px var(--font-mono);color:var(--muted);margin-top:6px}
+.k-meta{display:flex;justify-content:space-between;align-items:center;font:500 11px var(--font-mono);color:var(--muted);margin-top:6px}
+.k-priority{display:inline-flex;align-items:center;gap:5px}
+.k-priority .priority-dot{margin-top:0}
 .k-link{display:inline-block;font-size:11px;color:var(--ink);text-decoration:underline;margin-top:6px;transition:color var(--transition)}
 .k-link:hover{color:var(--ink-2)}
 .k-approve{display:flex;gap:6px;margin-top:10px}
