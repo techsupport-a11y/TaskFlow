@@ -54,6 +54,7 @@ code{font:12px var(--font-mono);color:var(--ink-2)}
 .primary:hover:not(:disabled){background:var(--hover-dark);transform:translateY(-1px);box-shadow:var(--shadow)}
 .primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .wide{width:100%;justify-content:center}
+.login-card .wide,.entry-panel .wide{margin-top:20px}
 .ghost{background:#fff;border:1px solid var(--line);padding:8px 14px;border-radius:var(--radius-pill);font-weight:500;color:var(--ink);font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:background var(--transition),border-color var(--transition),color var(--transition)}
 .ghost:hover:not(:disabled){background:var(--hover);border-color:var(--muted-2);color:var(--ink)}
 .ghost:disabled{opacity:.5;cursor:not-allowed}
