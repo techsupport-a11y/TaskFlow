@@ -54,6 +54,15 @@ function Shell({ user, onLogout }) {
 
   return (
     <div className="admin-shell">
+      {open && (
+        <button
+          type="button"
+          className="mobile-backdrop"
+          data-testid="mobile-nav-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setOpen(false)}
+        />
+      )}
       <aside className={open ? "open" : ""}>
         <div className="side-top">
           <div className="brand">
