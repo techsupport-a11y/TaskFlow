@@ -384,6 +384,9 @@ function TeamBoard({ data, reload }) {
   const [url, setUrl] = useState("");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailValue, setEmailValue] = useState(data.member.email || "");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
 
   const grouped = Object.fromEntries(statuses.map((s) => [s, data.tasks.filter((t) => t.status === s)]));
 
@@ -409,6 +412,19 @@ function TeamBoard({ data, reload }) {
     setComment("");
     setSelected((prev) => (prev ? { ...prev, comments: [...(prev.comments || []), r.data] } : prev));
     reload();
+  };
+
+  const saveEmail = async () => {
+    setEmailSaving(true);
+    setEmailMsg("");
+    try {
+      await api.patch(`/team/${data.member.slug}/email`, { email: emailValue });
+      setEmailMsg("Saved. You'll get an email whenever a new task is assigned to you.");
+      reload();
+    } catch (e) {
+      setEmailMsg(e.response?.data?.detail || "Could not save email");
+    }
+    setEmailSaving(false);
   };
 
   return (
@@ -438,6 +454,30 @@ function TeamBoard({ data, reload }) {
           <strong>{data.tasks.filter((t) => t.status === "Completed").length}</strong>
           <span>completed</span>
         </div>
+      </section>
+      <section className="email-pref" data-testid="team-email-pref">
+        <div>
+          <b>Email notifications</b>
+          <p className="muted small">Get an email when a new task is assigned to you.</p>
+        </div>
+        <div className="email-pref-form">
+          <input
+            data-testid="team-email-input"
+            type="email"
+            placeholder="you@example.com"
+            value={emailValue}
+            onChange={(e) => setEmailValue(e.target.value)}
+          />
+          <button
+            data-testid="team-email-save"
+            className="primary"
+            disabled={emailSaving}
+            onClick={saveEmail}
+          >
+            {emailSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+        {emailMsg && <p className="hint" data-testid="team-email-msg">{emailMsg}</p>}
       </section>
       <div className="task-groups">
         {statuses.map((s) => (
@@ -1203,6 +1243,7 @@ function AdminTeam() {
             <tr>
               <th>Name</th>
               <th>Classification</th>
+              <th>Email</th>
               <th>Access link</th>
               <th>Status</th>
               <th></th>
@@ -1213,6 +1254,7 @@ function AdminTeam() {
               <tr key={m.member_id} data-testid={`team-row-${m.member_id}`}>
                 <td>{m.name}</td>
                 <td>{m.classification}</td>
+                <td>{m.email || <span className="muted small">Not set</span>}</td>
                 <td>
                   <code>/team/{m.slug}</code>{" "}
                   <button
