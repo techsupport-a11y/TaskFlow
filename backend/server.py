@@ -24,6 +24,7 @@ OWNER_TRANSITIONS = {"Pending Approval": ["Completed", "Revision Required"]}
 
 class LoginInput(BaseModel): email: str; password: str
 class PasswordChange(BaseModel): current_password: str; new_password: str
+class NameChange(BaseModel): name: str
 class TaskInput(BaseModel):
     title: str; description: str = ""; assignee_id: str; deadline: str; priority: str = "Medium"; instructions: str = ""
 class TaskUpdate(BaseModel):
@@ -62,7 +63,7 @@ async def log_change(task_id, actor, old, new, note=""):
 async def seed():
     await db.users.create_index("email", unique=True)
     await db.team.create_index("slug", unique=True)
-    owners = [("usman@taskflow.demo", "Usman"), ("hena@taskflow.demo", "Hena")]
+    owners = [("usman@taskflow.demo", "Usman"), ("hena@taskflow.demo", "Hannah")]
     for email, name in owners:
         if not await db.users.find_one({"email": email}):
             await db.users.insert_one({"user_id": "owner_"+name.lower(), "email": email, "name": name, "role": "owner", "password_hash": hash_pw(os.environ["ADMIN_PASSWORD"]), "created_at": now()})
@@ -223,6 +224,11 @@ async def change_password(data: PasswordChange, user=Depends(current_owner)):
     if not verify_pw(data.current_password, full["password_hash"]): raise HTTPException(401, "Current password is incorrect")
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"password_hash": hash_pw(data.new_password), "password_updated_at": now()}})
     return {"ok": True}
+@api.patch("/auth/name")
+async def change_name(data: NameChange, user=Depends(current_owner)):
+    if not data.name.strip(): raise HTTPException(400, "Name cannot be empty")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"name": data.name.strip()}})
+    return {"ok": True, "name": data.name.strip()}
 
 @api.get("/admin/team/{member_id}/pin")
 async def get_pin(member_id: str, user=Depends(current_owner)):
