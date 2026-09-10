@@ -238,6 +238,13 @@ async def change_owner_email(data: OwnerEmailChange, user=Depends(current_owner)
     if existing and existing["user_id"] != user["user_id"]: raise HTTPException(400, "That email is already in use")
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"email": new_email}})
     return {"ok": True, "email": new_email}
+@api.delete("/auth/owner/{target_user_id}")
+async def delete_owner(target_user_id: str, user=Depends(current_owner)):
+    if target_user_id == user["user_id"]: raise HTTPException(400, "You cannot delete your own account")
+    target = await db.users.find_one({"user_id": target_user_id, "role": "owner"})
+    if not target: raise HTTPException(404, "Owner not found")
+    await db.users.delete_one({"user_id": target_user_id})
+    return {"ok": True}
 
 @api.get("/admin/team/{member_id}/pin")
 async def get_pin(member_id: str, user=Depends(current_owner)):
