@@ -146,13 +146,16 @@ def _assignment_email_html(member_name, task, slug):
     return f"""<div style="font-family:Helvetica,Arial,sans-serif;max-width:600px;color:#0F0E0E"><h2 style="color:#111844">TaskFlow · New task assigned</h2><p>Hi {member_name}, you've been assigned a new task.</p><table style="width:100%;border-collapse:collapse;margin:16px 0"><tr><td style="background:#f5f5f2;padding:14px"><b>{task['title']}</b><br><span style="color:#555">{task.get('description') or task.get('instructions') or 'No additional details'}</span></td></tr></table><p><b>Priority:</b> {task['priority']} &nbsp; <b>Deadline:</b> {task['deadline'][:10]}</p>{cta}</div>"""
 
 async def _notify_assignment(member, task):
+    if not member.get("email"): return None
     key = os.environ.get("RESEND_API_KEY")
-    if not key or not member.get("email"): return
+    if not key: return {"sent": False, "error": "Email delivery is not configured (missing RESEND_API_KEY)."}
     resend.api_key = key
     try:
         await asyncio.to_thread(resend.Emails.send, {"from": os.environ.get("SENDER_EMAIL", "onboarding@resend.dev"), "to": [member["email"]], "subject": f"TaskFlow — New task: {task['title']}", "html": _assignment_email_html(member["name"], task, member["slug"])})
+        return {"sent": True}
     except Exception as e:
         logging.warning(f"Assignment email to {member['email']} failed: {e}")
+        return {"sent": False, "error": str(e)}
 
 @api.post("/admin/tasks")
 async def create_task(data: TaskInput, user=Depends(current_owner)):
@@ -161,8 +164,11 @@ async def create_task(data: TaskInput, user=Depends(current_owner)):
     task = {"id": "task_"+uuid.uuid4().hex[:10], **data.model_dump(), "assignee_name": member["name"], "status": "Assigned", "comments": [], "created_at": now(), "updated_at": now()}
     await db.tasks.insert_one(task)
     await log_change(task["id"], user["name"], "—", "Assigned", "Task created")
-    await _notify_assignment(member, task)
-    return clean_task(task)
+    email_result = await _notify_assignment(member, task)
+    result = clean_task(task)
+    if email_result and not email_result["sent"]:
+        result["email_warning"] = f"Task created, but the notification email to {member['email']} could not be sent: {email_result['error']}"
+    return result
 @api.patch("/admin/tasks/{task_id}")
 async def edit_task(task_id: str, data: TaskUpdate, user=Depends(current_owner)):
     patch = {k:v for k,v in data.model_dump().items() if v is not None}

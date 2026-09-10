@@ -836,6 +836,7 @@ function AdminTasks() {
   const [editing, setEditing] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [rejectFeedback, setRejectFeedback] = useState("");
+  const [emailWarning, setEmailWarning] = useState("");
 
   const load = async () => {
     const [s, m] = await Promise.all([api.get("/admin/summary"), api.get("/admin/team")]);
@@ -848,10 +849,11 @@ function AdminTasks() {
   }, [loc.search]);
 
   const create = async (f) => {
-    await api.post("/admin/tasks", f);
+    const res = await api.post("/admin/tasks", f);
     setShowNew(false);
     nav("/admin/tasks");
     load();
+    setEmailWarning(res.data.email_warning || "");
   };
   const save = async (f) => {
     await api.patch(`/admin/tasks/${editing.id}`, f);
@@ -894,6 +896,14 @@ function AdminTasks() {
           <Plus size={17} /> New task
         </button>
       </div>
+      {emailWarning && (
+        <div className="banner-warning" data-testid="email-warning-banner">
+          <span>{emailWarning}</span>
+          <button onClick={() => setEmailWarning("")} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
       <div className="board-controls">
         <div className="toggle">
           <button
