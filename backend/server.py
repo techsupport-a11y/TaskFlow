@@ -25,6 +25,7 @@ OWNER_TRANSITIONS = {"Pending Approval": ["Completed", "Revision Required"]}
 class LoginInput(BaseModel): email: str; password: str
 class PasswordChange(BaseModel): current_password: str; new_password: str
 class NameChange(BaseModel): name: str
+class OwnerEmailChange(BaseModel): email: str
 class TaskInput(BaseModel):
     title: str; description: str = ""; assignee_id: str; deadline: str; priority: str = "Medium"; instructions: str = ""
 class TaskUpdate(BaseModel):
@@ -63,7 +64,7 @@ async def log_change(task_id, actor, old, new, note=""):
 async def seed():
     await db.users.create_index("email", unique=True)
     await db.team.create_index("slug", unique=True)
-    owners = [("usman@taskflow.demo", "Usman"), ("hena@taskflow.demo", "Hannah")]
+    owners = [("usman@taskflow.demo", "Usman"), ("hannah@taskflow.demo", "Hannah")]
     for email, name in owners:
         if not await db.users.find_one({"email": email}):
             await db.users.insert_one({"user_id": "owner_"+name.lower(), "email": email, "name": name, "role": "owner", "password_hash": hash_pw(os.environ["ADMIN_PASSWORD"]), "created_at": now()})
@@ -229,6 +230,14 @@ async def change_name(data: NameChange, user=Depends(current_owner)):
     if not data.name.strip(): raise HTTPException(400, "Name cannot be empty")
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"name": data.name.strip()}})
     return {"ok": True, "name": data.name.strip()}
+@api.patch("/auth/email")
+async def change_owner_email(data: OwnerEmailChange, user=Depends(current_owner)):
+    new_email = data.email.lower().strip()
+    if "@" not in new_email: raise HTTPException(400, "Enter a valid email address")
+    existing = await db.users.find_one({"email": new_email})
+    if existing and existing["user_id"] != user["user_id"]: raise HTTPException(400, "That email is already in use")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"email": new_email}})
+    return {"ok": True, "email": new_email}
 
 @api.get("/admin/team/{member_id}/pin")
 async def get_pin(member_id: str, user=Depends(current_owner)):
